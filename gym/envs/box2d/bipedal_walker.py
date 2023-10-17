@@ -133,6 +133,8 @@ class BipedalWalker(gym.Env, EzPickle):
     ### Starting State
     The walker starts standing at the left end of the terrain with the hull
     horizontal, and both legs in the same position with a slight knee angle.
+    The states used to generate the terrain are available in the `states`
+    attribute.
 
     ### Episode Termination
     The episode will terminate if the hull gets in contact with the ground or
@@ -174,6 +176,7 @@ class BipedalWalker(gym.Env, EzPickle):
         self.world = Box2D.b2World()
         self.terrain: List[Box2D.b2Body] = []
         self.hull: Optional[Box2D.b2Body] = None
+        self.states: List[int] = []
 
         self.prev_shaping = None
 
@@ -274,7 +277,7 @@ class BipedalWalker(gym.Env, EzPickle):
         self.legs = []
         self.joints = []
 
-    def _generate_terrain(self, hardcore):
+    def _generate_terrain(self, hardcore, states=None):
         GRASS, STUMP, STAIRS, PIT, _STATES_ = range(5)
         state = GRASS
         velocity = 0.0
@@ -284,10 +287,14 @@ class BipedalWalker(gym.Env, EzPickle):
         self.terrain = []
         self.terrain_x = []
         self.terrain_y = []
+        self.states = []
 
         stair_steps, stair_width, stair_height = 0, 0, 0
         original_y = 0
         for i in range(TERRAIN_LENGTH):
+            if states:
+                state = states[i]
+
             x = i * TERRAIN_STEP
             self.terrain_x.append(x)
 
@@ -374,6 +381,7 @@ class BipedalWalker(gym.Env, EzPickle):
 
             oneshot = False
             self.terrain_y.append(y)
+            self.states.append(state)
             counter -= 1
             if counter == 0:
                 counter = self.np_random.integers(TERRAIN_GRASS / 2, TERRAIN_GRASS)
@@ -427,6 +435,7 @@ class BipedalWalker(gym.Env, EzPickle):
         *,
         seed: Optional[int] = None,
         options: Optional[dict] = None,
+        states: List[int] = None
     ):
         super().reset(seed=seed)
         self._destroy()
@@ -437,7 +446,10 @@ class BipedalWalker(gym.Env, EzPickle):
         self.scroll = 0.0
         self.lidar_render = 0
 
-        self._generate_terrain(self.hardcore)
+        self._generate_terrain(
+            hardcore=self.hardcore,
+            states=states
+        )
         self._generate_clouds()
 
         init_x = TERRAIN_STEP * TERRAIN_STARTPAD / 2
